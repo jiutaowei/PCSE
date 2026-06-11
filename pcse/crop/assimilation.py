@@ -478,8 +478,12 @@ class WOFOST72_Assimilation(SimulationObject):
         k = self.kiosk
 
         # 7-day running average of TMIN
-        self._TMNSAV.appendleft(drv.TMIN)
-        TMINRA = sum(self._TMNSAV)/len(self._TMNSAV)
+        # Use TMINRA if provided directly, otherwise calculate from TMIN
+        if hasattr(drv, 'TMINRA'):
+            TMINRA = drv.TMINRA
+        else:
+            self._TMNSAV.appendleft(drv.TMIN)
+            TMINRA = sum(self._TMNSAV)/len(self._TMNSAV)
 
         # Photoperiodic daylength
         DAYL, DAYLP, SINLD, COSLD, DIFPP, ATMTR, DSINBE, ANGOT = astro(day, drv.LAT, drv.IRRAD)

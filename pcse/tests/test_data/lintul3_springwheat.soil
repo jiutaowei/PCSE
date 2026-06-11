@@ -6,3 +6,4 @@ WCWET  = 0.45           # Water content at above which oxygen stress occurs
 WCST   = 0.50           # Water content at saturation
 DRATE  = 30.  			# Maximum drainage rate of the soil (mm/day)
 RNMIN  = 0.01           # Daily soil N mineralization rate (g N/m2/day
+TNSOILI = 0.0           # Initial amount of inorganic N in soil (g N/m2)

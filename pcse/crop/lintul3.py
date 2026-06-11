@@ -272,6 +272,7 @@ class Lintul3(SimulationObject):
         WSOI   = Float(-99)   # Initial weight of storage organs
 
         RNMIN = Float(-99)    # Rate of soil mineratilation (g N/m2/day
+        TNSOILI = Float(-99)   # Initial amount of inorganic N in soil (g N/m2)
         
     class Lintul3States(StateVariables):
         LAI = Float(-99.) # leaf area index
@@ -347,6 +348,7 @@ class Lintul3(SimulationObject):
         init["WSO"] = p.WSOI
         init["WRT"] = p.WRTLI
         init["ROOTD"] = p.ROOTDI
+        init["TNSOIL"] = p.TNSOILI
 
         # Initialize the states objects
         self.states = self.Lintul3States(kiosk, publish=["LAI", "ROOTD"], **init)
