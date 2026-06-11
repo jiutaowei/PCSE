@@ -51,7 +51,7 @@ class Test_DVS_Partitioning(unittest.TestCase):
 def suite():
     """ This defines all the tests of a module"""
     suite = unittest.TestSuite()
-    suite.addTest(unittest.makeSuite(Test_DVS_Partitioning))
+    suite.addTest(unittest.TestLoader().loadTestsFromTestCase(Test_DVS_Partitioning))
     return suite
 
 if __name__ == '__main__':

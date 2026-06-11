@@ -68,7 +68,7 @@ class Test_FROSTOL(unittest.TestCase):
 def suite():
     """ This defines all the tests of a module"""
     suite = unittest.TestSuite()
-    suite.addTest(unittest.makeSuite(Test_FROSTOL))
+    suite.addTest(unittest.TestLoader().loadTestsFromTestCase(Test_FROSTOL))
     return suite
 
 if __name__ == '__main__':

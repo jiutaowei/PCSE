@@ -273,14 +273,14 @@ class TestAgroManager8(unittest.TestCase):
 def suite():
     """ This defines all the tests of a module"""
     suite = unittest.TestSuite()
-    suite.addTest(unittest.makeSuite(TestAgroManager1))
-    suite.addTest(unittest.makeSuite(TestAgroManager2))
-    suite.addTest(unittest.makeSuite(TestAgroManager3))
-    suite.addTest(unittest.makeSuite(TestAgroManager4))
-    suite.addTest(unittest.makeSuite(TestAgroManager5))
-    suite.addTest(unittest.makeSuite(TestAgroManager6))
-    suite.addTest(unittest.makeSuite(TestAgroManager7))
-    suite.addTest(unittest.makeSuite(TestAgroManager8))
+    suite.addTest(unittest.TestLoader().loadTestsFromTestCase(TestAgroManager1))
+    suite.addTest(unittest.TestLoader().loadTestsFromTestCase(TestAgroManager2))
+    suite.addTest(unittest.TestLoader().loadTestsFromTestCase(TestAgroManager3))
+    suite.addTest(unittest.TestLoader().loadTestsFromTestCase(TestAgroManager4))
+    suite.addTest(unittest.TestLoader().loadTestsFromTestCase(TestAgroManager5))
+    suite.addTest(unittest.TestLoader().loadTestsFromTestCase(TestAgroManager6))
+    suite.addTest(unittest.TestLoader().loadTestsFromTestCase(TestAgroManager7))
+    suite.addTest(unittest.TestLoader().loadTestsFromTestCase(TestAgroManager8))
     return suite
 
 if __name__ == '__main__':

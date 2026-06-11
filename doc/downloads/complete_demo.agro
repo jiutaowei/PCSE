@@ -1,0 +1,87 @@
+# ============================================================
+# PCSE 完整农事操作示例 — 冬小麦 + 青贮玉米两年轮作
+# 地点: 西班牙 Sevilla (lat=37.64, lon=-6.09)
+# 包含 TimedEvents (定时灌溉) + StateEvents (按状态追肥/灌溉)
+# ============================================================
+AgroManagement:
+- 1999-08-01:
+    CropCalendar:
+        crop_name: wheat
+        variety_name: winter-wheat
+        crop_start_date: 1999-09-15
+        crop_start_type: sowing          # 从播种开始，播种→出苗随温度自然发生
+        crop_end_date:
+        crop_end_type: maturity          # 等到生理成熟 (DVS=2.0)
+        max_duration: 300
+    TimedEvents:
+    -   event_signal: irrigate
+        name: 冬季干旱期补水
+        comment: 西班牙夏季干旱，冬季也需要补灌
+        events_table:
+        - 2000-01-01: {amount: 2, efficiency: 0.7}
+        - 2000-01-21: {amount: 5, efficiency: 0.7}
+    -   event_signal: apply_n
+        name: 返青期追肥
+        comment: 冬小麦越冬后追施返青肥
+        events_table:
+        - 2000-02-01: {amount: 50, recovery: 0.7}
+    StateEvents:
+    -   event_signal: apply_n
+        event_state: DVS
+        zero_condition: rising
+        name: 按生育期追氮
+        comment: 拔节期+抽穗期各追一次氮肥
+        events_table:
+        - 0.3: {N_amount: 30, N_recovery: 0.7}
+        - 0.6: {N_amount: 40, N_recovery: 0.7}
+    -   event_signal: irrigate
+        event_state: SM
+        zero_condition: falling
+        name: 基于土壤水分的智能灌溉
+        comment: 土壤水分低于0.15时自动灌水2cm
+        events_table:
+        - 0.15: {amount: 2, efficiency: 0.7}
+
+- 2001-01-01:
+    CropCalendar: null
+    TimedEvents: null
+    StateEvents: null
+
+- 2001-03-01:
+    CropCalendar:
+        crop_name: maize
+        variety_name: fodder-maize
+        crop_start_date: 2001-04-15
+        crop_start_type: sowing
+        crop_end_date:
+        crop_end_type: maturity
+        max_duration: 200
+    TimedEvents:
+    -   event_signal: irrigate
+        name: 出苗期灌溉
+        comment: 确保出苗期土壤水分充足
+        events_table:
+        - 2001-04-20: {amount: 3, efficiency: 0.7}
+        - 2001-05-01: {amount: 3, efficiency: 0.7}
+    StateEvents:
+    -   event_signal: apply_n
+        event_state: DVS
+        zero_condition: rising
+        name: 玉米分阶段追氮
+        comment: 拔节期+抽穗期+灌浆期各追一次氮
+        events_table:
+        - 0.3: {N_amount: 20, N_recovery: 0.7}
+        - 0.5: {N_amount: 30, N_recovery: 0.7}
+        - 0.7: {N_amount: 20, N_recovery: 0.7}
+    -   event_signal: irrigate
+        event_state: SM
+        zero_condition: falling
+        name: 按墒情灌溉
+        comment: 土壤水分低于0.18时自动灌水3cm
+        events_table:
+        - 0.18: {amount: 3, efficiency: 0.7}
+
+- 2001-12-15:
+    CropCalendar: null
+    TimedEvents: null
+    StateEvents: null

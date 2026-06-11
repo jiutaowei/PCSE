@@ -119,9 +119,9 @@ class Test_WaterLimitedEvapotranspiration2(unittest.TestCase):
 def suite():
     """ This defines all the tests of a module"""
     suite = unittest.TestSuite()
-    suite.addTest(unittest.makeSuite(Test_PotentialEvapotranspiration))
-    suite.addTest(unittest.makeSuite(Test_WaterLimitedEvapotranspiration1))
-    suite.addTest(unittest.makeSuite(Test_WaterLimitedEvapotranspiration2))
+    suite.addTest(unittest.TestLoader().loadTestsFromTestCase(Test_PotentialEvapotranspiration))
+    suite.addTest(unittest.TestLoader().loadTestsFromTestCase(Test_WaterLimitedEvapotranspiration1))
+    suite.addTest(unittest.TestLoader().loadTestsFromTestCase(Test_WaterLimitedEvapotranspiration2))
     return suite
 
 if __name__ == '__main__':

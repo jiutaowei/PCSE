@@ -80,10 +80,10 @@ class Test_PenmanMonteith4(PenmanMonteith_TestingTemplate):
 def suite():
     """ This defines all the tests of a module"""
     suite = unittest.TestSuite()
-    suite.addTest(unittest.makeSuite(Test_PenmanMonteith1))
-    suite.addTest(unittest.makeSuite(Test_PenmanMonteith2))
-    suite.addTest(unittest.makeSuite(Test_PenmanMonteith3))
-    suite.addTest(unittest.makeSuite(Test_PenmanMonteith4))
+    suite.addTest(unittest.TestLoader().loadTestsFromTestCase(Test_PenmanMonteith1))
+    suite.addTest(unittest.TestLoader().loadTestsFromTestCase(Test_PenmanMonteith2))
+    suite.addTest(unittest.TestLoader().loadTestsFromTestCase(Test_PenmanMonteith3))
+    suite.addTest(unittest.TestLoader().loadTestsFromTestCase(Test_PenmanMonteith4))
     return suite
 
 if __name__ == '__main__':

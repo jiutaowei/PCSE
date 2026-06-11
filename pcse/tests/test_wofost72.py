@@ -103,7 +103,7 @@ class WofostOutputRetriever:
         if not ix.any():
             msg = f"cannot find simulation results for day {day} and variable {variable}"
             raise RuntimeError(msg)
-        value = self.df_sim_results.loc[ix, variable][0]
+        value = self.df_sim_results.loc[ix, variable].iloc[0]
         return float(value)
 
 

@@ -80,7 +80,7 @@ class TestLINTUL3_SpringWheat(unittest.TestCase):
 def suite():
     """ This defines all the tests of a module"""
     suite = unittest.TestSuite()
-    suite.addTest(unittest.makeSuite(TestLINTUL3_SpringWheat))
+    suite.addTest(unittest.TestLoader().loadTestsFromTestCase(TestLINTUL3_SpringWheat))
     return suite
 
 if __name__ == '__main__':

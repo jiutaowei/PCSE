@@ -60,7 +60,7 @@ class Test_WOFOST_Assimilation(unittest.TestCase):
 def suite():
     """ This defines all the tests of a module"""
     suite = unittest.TestSuite()
-    suite.addTest(unittest.makeSuite(Test_WOFOST_Assimilation))
+    suite.addTest(unittest.TestLoader().loadTestsFromTestCase(Test_WOFOST_Assimilation))
     return suite
 
 if __name__ == '__main__':

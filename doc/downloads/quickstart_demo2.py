@@ -11,15 +11,12 @@ import pcse
 from pcse.input import NASAPowerWeatherDataProvider
 from pcse.input import CABOFileReader
 from pcse.input import YAMLAgroManagementReader
-from pcse.util import WOFOST72SiteDataProvider
+from pcse.input import WOFOST72SiteDataProvider
 from pcse.models import Wofost72_WLP_CWB
 from pcse.base import ParameterProvider
 
 # First set the location where the crop, soil and crop calendar files can be found
-data_dir = r""
-if data_dir == "":
-    print("Variable 'data_dir' in line 19 must be set to the location of the the data folder")
-    sys.exit()
+data_dir = r"quickstart_part2"
 
 # Retrieve weather data from the NASA Power database
 wdp = NASAPowerWeatherDataProvider(latitude=52, longitude=5)
@@ -31,7 +28,7 @@ sitedata = WOFOST72SiteDataProvider(WAV=10)
 parameters = ParameterProvider(cropdata=cropdata, soildata=soildata, sitedata=sitedata)
 
 # Read agromanagement
-agromanagement = YAMLAgroManagementReader(os.path.join(data_dir,'sugarbeet_calendar.amgt'))
+agromanagement = YAMLAgroManagementReader(os.path.join(data_dir,'sugarbeet_calendar.agro'))
 
 # Start WOFOST
 wf = Wofost72_WLP_CWB(parameters, wdp, agromanagement)

@@ -110,6 +110,6 @@ def make_test_suite(quick=True):
             test_class = type(fname, (PCSETestCaseYAML,), {"YAML_test_input_fname": fname,
                                                            "crop_simobj": wrapped_simobj,
                                                            "soil_simobj": soil_simobj})
-            suite.addTest(unittest.makeSuite(test_class))
+            suite.addTest(unittest.TestLoader().loadTestsFromTestCase(test_class))
 
     return suite
