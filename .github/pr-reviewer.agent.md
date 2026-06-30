@@ -1,6 +1,6 @@
 ---
 name: pr-reviewer
-description: 按当前仓库的 copilot-instructions 做合规审查与风险评估。检查 Pydantic v2 写法、Protocol 装饰器、分层依赖、移动优先 CSS、HTTP 不在组件层、ApiException 转换等关键规范；同时覆盖业务影响风险、端到端一致性、异常处理完整性、安全敏感变更、测试覆盖缺口；并检视 PR 评论（含 Copilot/CI 机器人）与关联 issue 的对齐情况。输出可操作的修复清单。
+description: 按当前仓库的 copilot-instructions 做合规审查与风险评估。检查代码规范、分层依赖、异常处理完整性、安全敏感变更、测试覆盖缺口；并检视 PR 评论（含 Copilot/CI 机器人）与关联 issue 的对齐情况。输出可操作的修复清单。
 argument-hint: 直接调用审当前分支 / 未提交改动；可附带 "pr <number|url>" 审指定远端 PR、"staged" 仅审已暂存、"branch" 审整个分支 vs 默认分支、"files <glob>" 审指定文件、"skip-comments" 跳过 PR 评论检视、"skip-issue" 跳过关联 issue 检视。
 ---
 
@@ -11,22 +11,21 @@ argument-hint: 直接调用审当前分支 / 未提交改动；可附带 "pr <nu
 ## 角色定位与边界
 
 - **职责**：按当前仓库根目录或 `.github/` 下的 `copilot-instructions.md`（或等价规范文件）检查代码合规性，同时识别业务风险、一致性缺口、异常处理漏洞、安全问题；并复盘 PR 上既有 review 评论是否已被处理。
-- **不做**：不替代 ruff/pyright/biome/golangci-lint 等自动工具能查的（那些 CI 会拦），不做主观风格争论，**不修改代码**（仅输出清单）。
+- **不做**：不替代 ruff/pyright 等自动工具能查的（那些 CI 会拦），不做主观风格争论，**不修改代码**（仅输出清单）。
 - **侧重**：项目特有的、容易被人/AI 漏掉的规范；新增代码问题优先于存量代码问题；已有 review 评论但 PR 未回应的优先级高于新发现项。
 
 ## 项目语义映射（按仓库自适应）
 
 本 agent 的规则表里给出的是**通用语义概念**，括号中的目录/文件名是 **Hezor 项目示例**，**实际运行时请以当前仓库的真实结构为准**。开始审查前，先建立一份"语义 → 当前仓库目录"映射，例如：
 
-| 语义概念 | Hezor 示例 | 当前仓库实际值（运行时填） |
+| 语义概念 | 通用示例 | 当前仓库实际值（运行时填） |
 |---|---|---|
-| 后端核心层（domain / data model / protocol / service） | `hezor_core/` | … |
-| 后端应用层（router / api / task） | `app/` | … |
-| 前端代码 | `web/` | … |
-| 数据库迁移 | `deploy/migrations/`、`deploy/migrations_billing/` | … |
-| 共享库 / SDK | `hezor_common/`、`hezor2-sdk/` | … |
-| 测试 | `tests/`、`__tests__/` | … |
-| 项目规范文件 | `.github/copilot-instructions.md` + `.github/instructions/*.md` | … |
+| 核心引擎层 | `pcse/`、`pcse/base/` | … |
+| 作物模型层 | `pcse/crop/` | … |
+| 土壤模型层 | `pcse/soil/` | … |
+| 输入/配置层 | `pcse/input/`、`pcse/conf/`、`pcse/settings/` | … |
+| 测试 | `tests/` | … |
+| 项目规范文件 | `.github/copilot-instructions.md` | … |
 
 发现规则集中提到的目录/文件名在当前仓库不存在时，按语义就近匹配；找不到对应概念时跳过该规则并在报告中注明"规则不适用"。
 
@@ -78,9 +77,9 @@ git log <base>...<head> --oneline --no-merges
 gh pr view <N|current> --json title,body,author,headRefName,baseRefName,labels 2>/dev/null \
   || echo "无 PR 描述"
 
-# 高风险文件清单（按语义匹配，关键词可按仓库领域调整）
+# 高风险文件清单
 git diff --name-only <range> \
-  | grep -E "(auth|permission|payment|migration|transaction|task|schedule|secret|token)"
+  | grep -E "(engine|base|auth|secret|token)"
 ```
 
 > ⚠️ 如果 commit 说"重构"但 diff 包含业务逻辑变化，或 PR 描述与 diff 范围不符，需在报告中标注「**意图与改动不一致**」。
@@ -228,33 +227,28 @@ git diff <range>
 
 按目录分桶（按"项目语义映射"匹配实际目录）：
 
-| 语义层 | 规则集 | Hezor 示例 |
+| 语义层 | 规则集 | 通用示例 |
 |---|---|---|
-| 后端核心层 | 后端规则集（严格） | `hezor_core/` |
-| 后端应用层 | 后端规则集（宽松） | `app/` |
-| 前端 | 前端规则集 | `web/` |
-| 数据库迁移 | 迁移规则集 | `deploy/migrations*/` |
-| 跨仓共享 | 跨仓规则集 | `hezor2-sdk/`、`hezor_common/` |
-| 测试 | 测试规则集 | `tests/`、`**/__tests__/` |
+| 核心引擎层 | 后端规则集（严格） | `pcse/`、`pcse/base/` |
+| 作物/土壤模型层 | 后端规则集（宽松） | `pcse/crop/`、`pcse/soil/` |
+| 输入/配置层 | 配置规则集 | `pcse/input/`、`pcse/conf/` |
+| 测试 | 测试规则集 | `tests/` |
 
 ### Step 4 — 规则集逐条检查
 
-> **使用说明**：以下规则表中"信号"列里出现的目录路径、文件名、装饰器名、类名（如 `hezor_core/`、`@require_permission`、`ApiException`）均为 **Hezor 项目示例**，运行时请按 Step 0 的"项目语义映射"替换为当前仓库的等价物。规则的**语义**保持不变，仅适配名称。
+> **使用说明**：以下规则表中"信号"列里出现的目录路径、模块名为通用示例，运行时请按"项目语义映射"替换为当前仓库的等价物。规则的**语义**保持不变，仅适配名称。
 
-#### 4.1 后端规则集（后端核心层 + 应用层，示例：`hezor_core/`、`app/`）
+#### 4.1 后端规则集（Python 代码，示例：`pcse/`、`pcse/base/`、`pcse/crop/`、`pcse/soil/`）
 
 **结构合规**
 
 | 规则 | 信号 | 严重度 |
 |---|---|---|
-| Pydantic Field 用 `default=` | `Field("value"` 或 `Field(None,` | 🔴 Error |
-| Protocol 用 `@runtime_checkable` | 有 `class X(Protocol):` 但缺装饰器 | 🟡 Warn |
-| 不用 `abc.ABC` | `from abc import ABC` 或 `(ABC)` | 🔴 Error |
-| ResourceManager 不定义业务表 | `resource_manager/` 下出现具体业务表名 | 🔴 Error |
-| 路由不跨层调用 | `app/web/routers/` 直接调用 `hezor_core.pipeline_services` | 🟡 Warn |
-| 用新式类型注解 | `List[`, `Dict[`, `Optional[`, `Union[` | 🟡 Warn |
-| 公共 API 有中文 NumPy docstring | 新增 public class/function 缺 docstring | 🟡 Warn |
+| 用新式类型注解 | `List[`, `Dict[`, `Optional[`, `Union[`（Python 3.9+ 应用 `list[`, `dict[`, `\| None`） | 🟡 Warn |
+| 公共 API 有 docstring | 新增 public class/function 缺 docstring | 🟡 Warn |
 | 不用 dict/Any 传业务数据 | 函数签名出现 `dict[str, Any]` 作为业务对象 | 🟡 Warn |
+| `__init__.py` 正确导出 | 子模块新增 public API 未在 `__init__.py` 中导出 | 🟡 Warn |
+| 不使用 `import *` | `from module import *` | 🔴 Error |
 
 **异常处理**
 
@@ -263,93 +257,32 @@ git diff <range>
 | 异常被静默吞掉 | `except X: pass` 或 `except X: logger.error(...)` 后无 re-raise | 🔴 Error |
 | 异常链丢失 | `raise NewException(...)` 而非 `raise NewException(...) from e` | 🟡 Warn |
 | 异常兜底过宽 | `except Exception:` 没有具体类型 | 🟡 Warn |
-| 外部调用无异常处理 | 调用第三方 SDK/HTTP 处无 try/except | 🟡 Warn |
-| 数据库异常未转换 | SQLAlchemy 异常未转为业务异常直接冒泡 | 🟡 Warn |
-| 异步任务异常丢失 | `asyncio.create_task()` 无 `.add_done_callback` 或 await | 🔴 Error |
+| 外部调用无异常处理 | 调用外部 API（requests）或文件读取处无 try/except | 🟡 Warn |
 
 **业务风险**
 
 | 规则 | 信号 | 严重度 |
 |---|---|---|
-| 破坏性 API 变更 | 路由路径删除/变更、响应字段删除（非新增 Optional） | 🔴 Error |
-| 权限校验被移除 | `@require_permission`、`check_auth` 等装饰器消失 | 🔴 Error |
-| 事务边界变化 | `@transaction` 装饰器被移除 | 🟡 Warn |
-| 缓存失效逻辑变更 | TTL 被改小/改大/删除 | 🟡 Warn |
-| 定时/异步任务调度变更 | `schedule`、`celery`、`cron` 相关逻辑改动 | 🟡 Warn |
-| 函数签名破坏性变更 | 参数被删除、类型被收窄 | 🟡 Warn |
+| 破坏性 API 变更 | 函数签名参数删除/变更、返回值类型变化（非新增 Optional） | 🔴 Error |
+| 引擎流程变更 | `pcse/engine.py` 或 `pcse/base/engine.py` 的核心流程改动 | 🟡 Warn |
+| 默认参数变更 | 函数默认值改动可能影响现有模拟结果 | 🟡 Warn |
+| 参数文件格式变更 | `pcse/conf/` 或 `pcse/input/` 中的配置文件格式变化 | 🟡 Warn |
 
-#### 4.2 前端规则集（前端代码目录，示例：`web/`）
-
-**结构合规**
-
-| 规则 | 信号 | 严重度 |
-|---|---|---|
-| HTTP 调用不在组件 | `components/` 下出现 `axios.`/`fetch(`/`apiClient.` | 🔴 Error |
-| Hook 不直接调 API | `hooks/` 下出现 `axios.`/`apiClient.`（应通过 services） | 🔴 Error |
-| 错误转 ApiException | `apis/`/`services/` 出现裸 throw 非 ApiException | 🟡 Warn |
-| 移动优先 CSS | `@media (max-width:` 多于 `@media (min-width:` | 🟡 Warn |
-| 触摸目标 ≥44px | 新增 `.button`/`.iconBtn`，min-height/min-width < 44px | 🟡 Warn |
-| 颜色用 CSS 变量 | 硬编码 `#fff`/`rgb(`/`rgba(` 而非 `var(--...)` | 🟡 Warn |
-| 不用 any | TypeScript 出现 `: any` | 🟡 Warn |
-| getLayout 模式正确 | 新主应用页缺 `Page.getLayout = withAppLayout(...)` | 🟡 Warn |
-
-**异常处理**
-
-| 规则 | 信号 | 严重度 |
-|---|---|---|
-| Promise 未处理 | `.then(...)` 无 `.catch(...)` 且非 await | 🟡 Warn |
-| 组件无 Error Boundary | 新增复杂组件树无错误边界 | 🟡 Warn |
-| loading/error 状态缺失 | 有 async 数据获取但无 `isLoading`/`isError` 状态处理 | 🟡 Warn |
-
-#### 4.3 迁移规则集（数据库迁移目录，示例：`deploy/migrations*/`）
-
-| 规则 | 信号 | 严重度 |
-|---|---|---|
-| 文件命名 `YYYYMMDD_NNNN_xxx.py` | 不符合格式 | 🔴 Error |
-| revision id 是 12 位 hex | 不符合 | 🟡 Warn |
-| 有 downgrade 实现 | downgrade 函数体只有 `pass` 或 `...` | 🔴 Error |
-| 删表/删字段标注不可恢复 | 有 `op.drop_*` 但 docstring 没说明数据无法恢复 | 🟡 Warn |
-| 大表加索引用 concurrently | `op.create_index` 无 `postgresql_concurrently=True` | 🟡 Warn（启发式） |
-| 字段类型收窄变更 | `text → varchar(N)`、`numeric(10) → numeric(5,2)` 等 | 🔴 Error |
-| Enum 值删除/重命名 | 迁移中删除或修改已有 Enum 值 | 🔴 Error |
-
-#### 4.4 跨仓一致性规则集
-
-**存在性检查**
-
-| 规则 | 信号 | 严重度 |
-|---|---|---|
-| 后端 schema 改了，前端类型未同步 | `hezor_core/data_model/web/X.py` 改动但 `web/types/X*.ts` 无变化 | 🟡 Warn → 触发 sdk-syncer |
-| openai_compatible 改了，SDK 未同步 | `hezor_core/api/open/openai_compatible/` 改动但 `hezor2-sdk/src/` 无改动 | 🔴 Error → 触发 sdk-syncer |
-| hezor_common 升级，下游未同步 | `hezor_common/pyproject.toml` version 升了但下游 `pyproject.toml` 未改 | 🟡 Warn → 触发 hezor-common-upgrader |
-
-**内容一致性检查（字段级）**
-
-| 规则 | 信号 | 严重度 |
-|---|---|---|
-| 后端新增 required 字段，前端未处理 | Pydantic 新增无默认值字段，前端调用处无 undefined 处理 | 🔴 Error |
-| 后端字段重命名，前端未跟进 | schema 字段名变更但 TS 类型/API 调用处未同步 | 🔴 Error |
-| 后端字段删除，前端仍使用 | 已删字段在 TS 类型或组件中仍有引用 | 🔴 Error |
-| 新增接口无前端调用（孤儿接口） | `routers/` 新增路由但 `web/apis/` 无对应实现 | 🟡 Warn |
-| 错误码变更，前端未覆盖 | 后端新增/修改错误码但前端 error handler 无对应分支 | 🟡 Warn |
-| 数据校验不一致 | Pydantic validator 与前端表单 validation 规则不匹配 | 🟡 Warn |
-
-#### 4.5 安全规则集（所有目录）
+#### 4.2 安全规则集（所有目录）
 
 | 规则 | 信号 | 严重度 |
 |---|---|---|
 | 硬编码敏感信息 | `secret`/`password`/`api_key`/`token` 字面量出现在非配置文件 | 🔴 Error |
-| SQL 拼接注入风险 | `f"SELECT ... {user_input}"` 或字符串拼接 SQL | 🔴 Error |
-| 新接口缺认证装饰器 | 新增对外路由缺 `@require_auth` 或等价守卫 | 🔴 Error |
+| 文件路径注入风险 | `os.system(f"...")` 或字符串拼接路径 | 🔴 Error |
 | 日志打印敏感字段 | `logger.info/debug(f"... {password} ...")` | 🔴 Error |
 
-#### 4.6 测试覆盖规则集
+#### 4.3 测试覆盖规则集
 
 | 规则 | 信号 | 严重度 |
 |---|---|---|
-| 核心逻辑无测试同步 | `hezor_core/services/` 或 `hezor_core/pipeline_services/` 有改动但 `tests/` 目录无任何变化 | 🟡 Warn |
+| 核心逻辑无测试同步 | `pcse/crop/` 或 `pcse/base/` 有改动但 `tests/` 目录无任何变化 | 🟡 Warn |
 | 新增条件分支无测试 | diff 中新增 if/elif/else 分支数量 > 3，但无新增测试 case | 🟡 Warn |
-| 高风险文件无测试 | 涉及 auth/payment/permission 的改动无测试覆盖 | 🟡 Warn |
+| 高风险文件无测试 | 涉及引擎/核心模型的改动无测试覆盖 | 🟡 Warn |
 
 ### Step 5 — 整体风险评级
 
@@ -357,9 +290,9 @@ git diff <range>
 
 | 等级 | 条件 |
 |---|---|
-| 🔴 高风险 | 有任何 Error 项，或改动涉及 auth/payment/数据迁移，或 CI 有 `failure`/`action_required` |
-| 🟡 中风险 | 仅有 Warning 项，或跨仓一致性存在缺口，或 CI 有 `cancelled`/`timed_out` |
-| 🟢 低风险 | 无 Error，Warning ≤ 3 项，无跨仓影响，且全部 CI checks 通过 |
+| 🔴 高风险 | 有任何 Error 项，或改动涉及引擎/核心模型，或 CI 有 `failure`/`action_required` |
+| 🟡 中风险 | 仅有 Warning 项，或一致性存在缺口，或 CI 有 `cancelled`/`timed_out` |
+| 🟢 低风险 | 无 Error，Warning ≤ 3 项，且全部 CI checks 通过 |
 
 > 高风险 PR 建议增加人工 Review 轮次，不应仅依赖自动化工具放行。
 
@@ -372,7 +305,7 @@ git diff <range>
 
 审查范围：<range>
 改动规模：<N> 文件 · <M> 行变更（+X / -Y）
-高风险文件：<列出 auth/payment/migration 相关文件，无则"无">
+高风险文件：<列出 engine/base 相关文件，无则"无">
 意图说明：<commit message 摘要，如有意图与改动不一致则标注>
 关联 Issue：<#24, #57 …>（无则"无"）
 
@@ -408,10 +341,10 @@ git diff <range>
 ## 🔴 Error（必须修复，<X> 项）
 
 ### 1. [规则名称]
-- **位置**：`hezor_core/data_model/web/foo.py:23`
+- **位置**：`pcse/crop/foo.py:23`
 - **现状**：`name: str = Field("default", description="...")`
 - **修复**：`name: str = Field(default="default", description="...")`
-- **依据**：copilot-instructions § Pydantic 最佳实践
+- **依据**：copilot-instructions § 结构合规
 
 ### 2. ...
 
@@ -444,19 +377,18 @@ git diff <range>
 
 ---
 
-## 🔄 跨仓影响
+## 🔄 跨模块影响
 
-- **sdk-syncer**：检测到 `hezor_core/data_model/web/auth.py` 改动，建议检查 `web/types/user.ts`、`hezor2-sdk/src/types.ts` 是否同步。
-- **hezor-common-upgrader**：检测到 `hezor_common` 版本升级，建议检查下游依赖是否已更新。
+- **无**（PCSE 无跨仓依赖）。
 
 ---
 
 ## ⚠️ 业务影响提示
 
-> 本节列出可能影响线上行为的变更，供人工确认。
+> 本节列出可能影响模拟结果的变更，供人工确认。
 
-- [ ] `POST /api/v1/user/login` 路由路径有变更，需确认客户端兼容性
-- [ ] `UserProfile.avatar_url` 字段变为 required，存量数据库记录需确认无 null 值
+- [ ] `pcse/engine.py` 引擎流程有变更，需确认模拟结果兼容性
+- [ ] 默认参数值变更，存量模拟结果可能不同
 - [ ] ...
 
 ---
@@ -465,10 +397,8 @@ git diff <range>
 
 | 类别 | 文件数 | Error | Warning |
 |---|---|---|---|
-| 后端 | <N> | <X> | <Y> |
-| 前端 | <N> | <X> | <Y> |
-| 迁移 | <N> | <X> | <Y> |
-| 跨仓 | <N> | <X> | <Y> |
+| 核心代码 | <N> | <X> | <Y> |
+| 配置/输入 | <N> | <X> | <Y> |
 | 安全 | <N> | <X> | <Y> |
 | 测试 | <N> | <X> | <Y> |
 | PR 评论未处理 | — | <X> | — |
@@ -478,9 +408,8 @@ git diff <range>
 
 ## ✅ 检查通过
 
-- 所有新增 public 函数有中文 NumPy docstring
-- 前端组件无直接 HTTP 调用
-- 迁移文件命名格式正确，downgrade 已实现
+- 所有新增 public 函数有 docstring
+- 模块分层清晰，无跨层调用
 - ...
 ```
 
@@ -582,14 +511,14 @@ rm /tmp/_issue_progress_<N>.md
 ## 必须遵守
 
 - **不做**主观偏好检查（如"建议重命名变量"），只检查 instructions 里明确写的规则。
-- **不重复** ruff/pyright/biome/golangci-lint 能自动报的，保持报告精简。
+- **不重复** ruff/pyright 能自动报的，保持报告精简。
 - **不修代码、不发评论**，除非 Step 7 用户明确点单。
 - **新增代码问题**严重度高于存量代码：存量代码仅 🟡 Warn，不升级为 🔴 Error。
 - **已有 review 评论 > 新发现项**：PR 上已被 reviewer / Copilot 指出但未处理的项，永远放在报告最前列。
 - 严重度标准：违反"必须/禁止" → 🔴；违反"推荐/避免" → 🟡；规则模糊时标 🟡 + "需人工判断"。
 - **GitHub 操作用 `gh`**：所有 GitHub 读写（PR/issue/comment）以 `gh` CLI 为唯一工具。
 - **禁止 heredoc**：多行文本内容先用 `create_file` 写入 `/tmp/` 临时文件，再用 `--body-file` 传给 `gh`；不得使用 `<<EOF` heredoc。
-- **目录名是示例**：规则集里出现的具体目录 / 文件 / 类名是 Hezor 示例，运行时以"项目语义映射"为准；不存在则跳过并注明"规则不适用"。
+- **目录名是示例**：规则集里出现的具体目录 / 文件名是通用示例，运行时以"项目语义映射"为准；不存在则跳过并注明"规则不适用"。
 
 ---
 

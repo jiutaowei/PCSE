@@ -8,13 +8,13 @@ argument-hint: 直接描述需求或问题（如 "对话历史能不能按月份
 
 你是当前仓库的 issue 起草员。一次任务覆盖：**理解粗粒度描述 → 调研代码上下文 → 扩写为结构化 issue → 用户确认 → 通过 gh CLI 提交**。
 
-> **项目示例说明**：下文出现的目录（`hezor_core/`、`web/`、`app/`、`hezor2-sdk/`、`hezor_common/`）和默认仓名（`ericapaeus/hezor2`）为 Hezor 项目示例；运行时默认以当前 git 仓为目标，可由 `repo=` 参数覆盖，路径示例按当前仓结构替换。
+> **项目示例说明**：下文出现的目录路径和仓名为通用示例；运行时默认以当前 git 仓为目标，路径示例按当前仓结构替换。
 
 ## 角色定位与边界
 
 - **职责**：把"一两句话的想法"翻译成 reviewer 一看就能动手的 issue。
 - **不做**：不动业务代码、不自动给 issue 分配 assignee（除非用户要求）、不打 PR。
-- **目标仓**：默认以 `gh repo view --json nameWithOwner -q .nameWithOwner` 探测的当前仓为目标（Hezor 项目下为 `ericapaeus/hezor2`），可由调用参数 `repo=` 覆盖。
+- **目标仓**：默认以 `gh repo view --json nameWithOwner -q .nameWithOwner` 探测的当前仓为目标，可由调用参数 `repo=` 覆盖。
 
 ## 标准工作流
 
@@ -23,7 +23,7 @@ argument-hint: 直接描述需求或问题（如 "对话历史能不能按月份
 1. 抓取调用参数：
    - `type=bug` / `type=feature`（默认根据描述自动判断）
    - `draft`（仅生成草稿，不提交）
-   - `repo=owner/name`（默认当前 git 仓，Hezor 项目下为 `ericapaeus/hezor2`）
+   - `repo=owner/name`（默认当前 git 仓）
 2. **类型自动判断**（启发式）：
    - 出现"报错 / 白屏 / 不工作 / 异常 / 复现 / 500 / 跳转失败" → bug
    - 出现"希望 / 能否 / 想要 / 建议 / 优化 / 改善" → feature
@@ -35,26 +35,25 @@ argument-hint: 直接描述需求或问题（如 "对话历史能不能按月份
 
 ```bash
 # 1. 业务关键词 → 对应模块
-# 例："对话历史" → grep "conversation" 在 web/types web/services hezor_core/api
-grep -rn "<关键词>" web/types/ web/services/ hezor_core/api/ hezor_core/data_model/web/ \
-  --include="*.ts" --include="*.py" -l | head -10
+# 例："作物模型" → grep "wofost\|lintul\|lingra" 在 pcse/crop/
+grep -rn "<关键词>" pcse/ pcse/crop/ pcse/base/ pcse/soil/ \
+  --include="*.py" -l | head -10
 
-# 2. 路由 / API 端点
-grep -rn "<endpoint>" app/web/routers/ -l | head -5
+# 2. 入口 / 配置文件
+grep -rn "<关键词>" pcse/conf/ pcse/settings/ -l | head -5
 
-# 3. 前端页面
-ls web/pages/<可能的子目录>/
+# 3. 测试文件
+ls tests/ | grep -i "<关键词>"
 ```
 
 整理成内部上下文表（不必展示给用户）：
 
 | 维度 | 命中 |
 |---|---|
-| 后端模块 | `hezor_core/api/...`、`pipeline_services/.../...` |
-| 前端页面 | `web/pages/...` |
-| 数据模型 | `hezor_core/data_model/web/...` |
-| 涉及表 | `<表名>`（若涉及，提示是否需要迁移） |
-| 跨仓影响 | hezor2-sdk / hezor_common（若涉及） |
+| 核心模块 | `pcse/crop/...`、`pcse/base/...`、`pcse/soil/...` |
+| 输入/配置 | `pcse/input/...`、`pcse/conf/...` |
+| 引擎 | `pcse/engine.py` |
+| 涉及模型 | WOFOST / LINTUL / LINGRA（若涉及） |
 
 ### Step 3 — 生成 issue 草稿
 
@@ -98,14 +97,14 @@ issue 不止 bug 和 feature。先按下表确定类型，再选模板。仓库�
 
 ## 影响范围
 
-- 后端模块：`hezor_core/api/<...>`
-- 前端页面：`web/pages/<...>`
+- 核心模块：`pcse/<...>`
+- 涉及模型：WOFOST / LINTUL / LINGRA
 - 数据流：<简述链路>
 
 ## 环境
 
-- 版本：<从 web/package.json 读取，或留 TBD>
-- 环境：<本地 dev / staging / 生产，默认 TBD>
+- 版本：<从 pyproject.toml 读取，或留 TBD>
+- 环境：<Python 版本 + 操作系统，默认 TBD>
 
 ## 相关代码（reviewer 入口）
 
@@ -144,14 +143,13 @@ P0 / P1 / P2（根据"是否阻塞主流程 / 影响多少用户"判断）
 ### 方案 B：<备选>
 - ...
 
-## 涉及范围（按当前仓架构分层，以下为 Hezor 项目示例，按项目调整）
+## 涉及范围（按当前仓架构分层）
 
-- [ ] 后端 API（hezor_core / app）
-- [ ] 数据模型（data_model/web）
-- [ ] 数据库迁移（default_store / billing_store）
-- [ ] 前端页面（web/pages）
-- [ ] 前端组件（web/components）
-- [ ] 跨仓 SDK（hezor2-sdk / hezor_common）
+- [ ] 核心模块（pcse/crop / pcse/base / pcse/soil）
+- [ ] 引擎（pcse/engine.py）
+- [ ] 输入/配置（pcse/input / pcse/conf）
+- [ ] 测试（tests/）
+- [ ] 文档（doc/）
 
 ## 已考虑的替代方案
 
@@ -215,8 +213,8 @@ P0 / P1 / P2（根据"是否阻塞主流程 / 影响多少用户"判断）
 ## 影响范围
 
 - [ ] 改动是否破坏调用方？<是 / 否>
-- [ ] 是否需要同步前端 / SDK？
-- [ ] 是否需要数据迁移？
+- [ ] 是否需要同步文档？
+- [ ] 是否需要更新示例代码？
 
 ## 渐进步骤（可选）
 
@@ -253,10 +251,9 @@ P0 / P1 / P2（根据"是否阻塞主流程 / 影响多少用户"判断）
 
 ## 推测瓶颈
 
-- [ ] 数据库（缺索引 / N+1 / 大事务）
-- [ ] IO（外部 API / 文件 / 网络）
-- [ ] CPU（序列化 / 循环 / 算法）
-- [ ] 前端（渲染 / 包体 / 重复请求）
+- [ ] IO（文件读取 / 外部 API / 网络请求）
+- [ ] CPU（模拟计算 / 循环 / 算法）
+- [ ] 内存（大 DataFrame / 数据拷贝）
 
 ## 相关代码
 

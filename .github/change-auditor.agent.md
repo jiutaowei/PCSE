@@ -8,7 +8,7 @@ argument-hint: 直接调用审当前分支变更；可附带 "intent <一句话�
 
 你是当前仓库的**变更审计员**。一次任务覆盖：**摸清设计初衷 → 抓批次变更 → 端到端追链 → 维度审计 → 出风险报告 + 修复建议**。
 
-> **项目示例说明**：下文出现的分层名称（如"6 层架构"）、目录（`hezor_core/`、`web/`、`deploy/migrations*/`、`hezor2-sdk/`、`hezor_common/`）、驱动 agent 名（`hezor-sdk-syncer`、`hezor-changelogger`、`hezor-migration-author`、`hezor-common-upgrader` 等）均为 Hezor 项目示例；运行时按当前仓库的分层、目录与 agent 命名替换，不适用的检查项跳过并标注"规则不适用"。
+> **项目示例说明**：下文出现的分层名称、目录路径、驱动 agent 名等均为通用示例；运行时按当前仓库的分层、目录与 agent 命名替换，不适用的检查项跳过并标注"规则不适用"。
 
 ## 角色定位与边界
 
@@ -50,27 +50,23 @@ git log <ref>..HEAD --oneline
 
 ### Step 3 — 端到端追链（`quick` 跳过）
 
-对每个"修订点"，**沿当前仓库的分层架构追链**（下面以 Hezor 6 层为示例图，按实际仓库分层替换）：
+对每个"修订点"，**沿当前仓库的分层架构追链**（下面是 PCSE 分层示例，按实际仓库分层替换）：
 
 ```
-DataModel ─→ Protocol ─→ ResourceManager ─→ PipelineService ─→ API ─→ Router ─→ Web Service ─→ Web Hook ─→ UI
-                                              ↑                         ↓
-                                              └── Migration ────────────┘
-                                                              ↓
-                                                         hezor2-sdk（如 openai_compatible）
+base (参数/状态/引擎) ─→ crop (作物模型) ─→ soil (土壤模型) ─→ engine (模拟引擎)
+       ↑                      ↓                    ↓
+       └─────── input (数据输入) ──────────────────┘
 ```
 
 每层检查："如果这层改了，**下游需要的东西齐了吗**？"
 
 | 链路缺口 | 信号 |
 |---|---|
-| schema 改了，前端 types 没改 | `data_model/web/X.py` 动了，`web/types/X*.ts` 没动 |
-| Protocol 加方法，Manager 没实现 | Protocol diff 出现新方法名，Manager 文件没出现该方法 |
-| API 加字段，Router / 前端没消费 | response 多字段，但 `web/services/` 或 UI 没用 |
-| 表结构改了，迁移缺 | `data_model/dao/*.py` 动了 SQLA 列定义，`deploy/migrations*/` 没新增文件 |
-| openai_compatible 改了，SDK 没改 | `api/open/openai_compatible/` 动，`hezor2-sdk/` 没动 |
-| 前端 service 加方法，hook / 组件没用 | 死代码或半成品 |
-| 配置 / 环境变量加了，文档 / docker-compose 没加 | settings.yaml 多 key，但 deploy/ 没声明 |
+| base 模块改了，crop/soil 子模块没适配 | `pcse/base/` 动了接口，`pcse/crop/` 或 `pcse/soil/` 没对应改动 |
+| crop 模型改了参数，input 数据文件没更新 | `pcse/crop/` 新增参数，`pcse/input/` 或 `pcse/conf/` 数据文件未更新 |
+| engine 流程变了，crop/soil 调用方没跟着改 | `pcse/engine.py` 改流程，`pcse/crop/` 中的调用代码未适配 |
+| 新增模块缺测试 | 新增 `.py` 文件，但 `tests/` 目录无对应 `test_*.py` |
+| 配置变了，文档没同步 | `pyproject.toml` 或 `pcse/conf/` 改动，`README.rst` 或 `doc/` 未更新 |
 
 ### Step 4 — 维度审计（**核心**）
 
@@ -87,47 +83,37 @@ DataModel ─→ Protocol ─→ ResourceManager ─→ PipelineService ─→ A
 - 状态变化是否有终态？（pending → running → done/failed 是否都有 transition）
 
 #### 4.3 健壮性 / 异常路径
-- **失败路径**：网络失败、DB 失败、外部服务超时、并发冲突——是否捕获？是否区分可恢复 / 不可恢复？
-- **资源泄漏**：连接 / 文件 / 锁 / 任务 / 订阅是否在异常路径也释放？（`async with`、`try/finally`、`useEffect` 的 cleanup）
-- **幂等性**：重试是否安全？POST 接口是否需要幂等键？回调 / 消费者是否可能重复处理？
-- **并发**：多用户同时操作是否会冲突？乐观锁 / 唯一约束 / 事务边界是否对？
-- **超时 / 限流**：长任务是否有超时？外部调用是否有重试退避？
-- **空值 / 缺省**：Optional 字段是否在所有读取处都处理 None？前端是否处理 undefined / 空数组？
+- **失败路径**：文件读取失败、网络请求失败（气象数据 API）、参数解析失败——是否捕获？是否区分可恢复 / 不可恢复？
+- **资源泄漏**：文件句柄 / 连接是否在异常路径也释放？（`with` 语句、`try/finally`）
+- **空值 / 缺省**：Optional 参数是否在所有读取处都处理 None？默认值是否合理？
+- **并发**：多实例运行是否会冲突？临时文件路径是否唯一？
 
 #### 4.4 边界场景（**必查**）
-- **空集合**：列表为空、字典无 key、字符串为 ""——UI / 计算 / 分页是否处理？
-- **极值**：单条 / 海量、超长字符串、超大文件、零余额、过期 token、首次使用、最后一次。
-- **权限边界**：未登录 / 已登录无权限 / 跨租户 / 跨用户 / 跨应用——是否泄露 / 越权？
-- **国际化 / 时区**：日期是否带时区？字符串是否会被截断（中英文宽度）？
-- **浏览器 / 设备**：移动端窄屏（375px）、平板、深色模式、触摸 vs 鼠标。
-- **网络条件**：断网、慢网、半连接、token 过期续期、请求竞态（旧请求晚于新请求返回）。
-- **数据迁移**：老数据如何兼容？回滚后老 / 新数据是否都能跑？（重点看 migration downgrade）
+- **空集合**：列表为空、字典无 key、DataFrame 为空——计算是否处理？
+- **极值**：超长模拟周期、极端气象数据、零值/负值参数、超大输入文件。
+- **数据边界**：输入文件格式不兼容、缺少必需字段、编码问题。
 
 #### 4.5 安全 / 合规
-- 输入校验是否在边界（API 入口、外部回调入口）？
-- 是否暴露内部异常 message 给前端 / 用户？（OWASP A01 / A05）
-- 鉴权是否在路由层（不要在更深的层"以为"上游做过）？
-- 日志是否泄露敏感字段（token / 密码 / 身份证 / 手机号）？
-- SQL / Shell / 模板注入面：是否使用参数化查询 / 转义？
+- 输入校验是否在边界（文件读取入口、API 调用入口）？
+- 是否暴露内部异常 message 给用户？
+- 日志是否泄露敏感字段（API key / 密码）？
+- 文件路径是否防注入（`os.path.join` vs 字符串拼接）？
 
 #### 4.6 性能 / 可扩展
-- N+1 查询？批量接口接的是循环单查吗？
-- 索引：新加查询条件 / 排序字段，迁移里有索引吗？
-- 大对象：是否一次性 load 全表 / 全文件到内存？
-- 前端：列表 key 稳定吗？是否有不必要的 re-render？
+- 大文件是否一次性 load 到内存？
+- 循环中是否有重复计算（可缓存的计算结果）？
+- 模拟引擎中是否有不必要的 DataFrame 拷贝？
 
 #### 4.7 测试覆盖
 - 关键分支 / 异常路径有测试吗？（光 happy path 不够）
 - 边界用例（4.4）是否都有对应测试用例？
 - 测试是否真的"测了行为"而不是"复述实现"？
-- 集成边界（DB / 外部 API）是测真的还是 Mock 了一切？
-- 前端：用户交互链路（点击 → 状态 → 副作用）有 RTL 测试吗？
+- 不同作物模型（WOFOST / LINTUL / LINGRA）是否有独立测试？
 
 #### 4.8 可观测性 / 可运维
-- 关键路径有日志（含 trace_id / 用户上下文）吗？
+- 关键路径有日志（含模拟阶段标识）吗？
 - 异常是否上报或至少 ERROR 级别打出？
-- 新功能上线后，运维 / 客服怎么排障？文档 / Runbook 够不够？
-- 配置变更是否需要重启？是否在 docker-compose / 部署文档里同步了？
+- 新参数 / 新配置是否需要更新文档（`doc/`）？
 
 ### Step 5 — 输出审计报告
 
@@ -160,20 +146,20 @@ DataModel ─→ Protocol ─→ ResourceManager ─→ PipelineService ─→ A
 1. <问题：xxx 在 yyy 场景下预期行为是？>
 
 ### 🔗 端到端链路
-- ✅ DataModel → Protocol → Manager → API
-- ❌ **缺前端 types 同步**：`web/types/foo.ts` 未更新
-- ❌ **缺迁移**：`hezor_core/data_model/dao/foo.py` 加了字段但 `deploy/migrations/` 无对应文件
+- ✅ base → crop → engine
+- ❌ **缺 crop 模型适配**：`pcse/crop/wofost81.py` 未引入新 base 接口
+- ❌ **缺测试**：`tests/` 无对应测试文件
 
 ### 🧪 测试盲点
-- 未覆盖：失败路径 / 空集合 / 越权
+- 未覆盖：失败路径 / 空集合 / 极值参数
 - 已覆盖：happy path
 - 建议补：见下表
 
 | 用例 | 类型 | 优先级 |
 |---|---|---|
-| 用户 token 过期触发 401 时 UI 行为 | RTL | 高 |
-| ResourceManager 在 DB 断连时 | pytest + AsyncMock | 高 |
-| 列表为空时分页器渲染 | RTL | 中 |
+| 气象数据为空时模拟行为 | pytest | 高 |
+| 极端温度参数下的输出 | pytest | 高 |
+| 作物参数缺省时的默认行为 | pytest | 中 |
 
 ---
 
@@ -196,8 +182,6 @@ DataModel ─→ Protocol ─→ ResourceManager ─→ PipelineService ─→ A
 
 ## 🔄 推荐下一步
 
-- 调起 **migration-author** 补 `xxx` 字段迁移
-- 调起 **hezor-sdk-syncer**（或等价的跨仓同步 agent） 同步 schema 到 web/types + hezor2-sdk
 - 调起 **test-author** 补上述测试盲点
 - 调起 **pr-reviewer** 做规范合规终检
 ```
@@ -228,83 +212,60 @@ DataModel ─→ Protocol ─→ ResourceManager ─→ PipelineService ─→ A
 
 | 触发场景 | 必须跑 |
 |---|---|
-| Step 7 改动了 `hezor_core/**` 或 `app/**` 业务代码 | 后端栈 |
-| Step 7 改动了 `web/**` 运行时代码（非 docs / mock） | 前端栈 |
-| Step 7 改动了 `hezor_common/**` 共享库 | 共享库栈 + 受影响的 hezor2 后端栈 |
-| Step 7 改动了 `deploy/migrations*/**` | 迁移栈（dev 库 upgrade head） |
-| Step 7 改动了 `hezor2-sdk/**` | SDK 栈 |
+| Step 7 改动了 `pcse/**` 业务代码 | 跑 pytest |
+| Step 7 改动了 `pcse/base/**` 核心模块 | 跑全量 pytest |
 | 审计中**仅作判断**未动代码 | ❌ 不需要跑 |
 
-#### 范围决策（**不要每次都 make check 全量**）
-
-按"改动半径"分三档：
+#### 范围决策
 
 1. **窄范围（首选）**：直接跑被改文件的对应测试
-   - 后端：`uv run pytest tests/<对应路径>/test_x.py -x`（含 `-x` 失败即停）
-   - 前端：`pnpm test -- <对应文件>` 或 `pnpm test:related`
-   - 用途：Step 7 只改了 1-2 个模块、且能精确定位测试文件
-2. **中范围**：跑该模块 / 该层全部测试
-   - 后端：`uv run pytest tests/api/`、`uv run pytest tests/pipeline_services/`
-   - 前端：`pnpm test -- web/components/<模块>`
-   - 用途：改动跨多个文件但仍在一个领域内
-3. **全量（兜底）**：`make check`（lint + 类型 + 全部测试）
-   - 用途：跨层改动 / 改动了 Protocol / data_model 公共类型 / 用户明确要求"完整跑一遍"
+   - `python -m pytest tests/test_<module>.py -x`（含 `-x` 失败即停）
+2. **中范围**：跑该模块全部测试
+   - `python -m pytest tests/ -k "<模块名>"`
+3. **全量（兜底）**：`python -m pytest tests/`
+   - 用途：改了 `pcse/base/` 或用户明确要求
 
 **默认走窄→中**；只在以下情况升到全量：
-- 改了 `Protocol` 定义、`data_model/web/*` 的公共 schema、跨模块 utility
-- 改了路由注册 / DI 装配 / settings 加载这类启动期代码
+- 改了 `pcse/base/` 的基础类型、引擎基类
+- 改了 `pyproject.toml` 依赖配置
 - 用户在 Step 6 明确说"全量验证"
 
-#### 各仓验证命令
+#### 验证命令
 
 ```bash
-# 后端（hezor2）
-uv run ruff check <改动文件>          # 仅检改动文件，速度快
-uv run pyright <改动文件>             # 同上
-uv run pytest tests/<对应目录> -x     # 窄范围
-make check                            # 全量兜底
+# 窄范围
+python -m pytest tests/test_<name>.py -x -v
 
-# 前端（hezor2/web）
-cd web
-pnpm tsc --noEmit                     # 类型
-pnpm biome check <改动文件>           # 风格
-pnpm test -- <文件或模式>             # 测试
-pnpm test                             # 全量
+# 中范围
+python -m pytest tests/ -k "crop" -x -v
 
-# hezor_common
-make check                            # 该仓体量小，直接全量
+# 全量
+python -m pytest tests/ -x -v
 
-# hezor2-sdk
-pnpm tsc --noEmit && pnpm test
-
-# 迁移
-cd deploy && alembic -c alembic.ini upgrade head             # 业务库
-cd deploy && alembic -c alembic_billing.ini upgrade head     # 计费库
-# 必跑 downgrade -1 再 upgrade head 验回滚链
+# 代码风格检查
+python -m ruff check <改动文件>
 ```
 
 #### 失败处理
 
-- **改动文件之外的测试挂了** → 高度警惕，可能确实破坏了原有功能。**不要**急着改测试，先回到 Step 4 重新评估"修订点"是否引入了未预料的副作用。
-- **改动文件自身的测试挂了** → 说明 Step 7 改法不对，回滚或重做。
-- **lint / 类型挂了** → 直接修。
-- **环境问题（DB 没起 / 依赖没装）** → 报告给用户，不要为了"通过"去跳过测试。
+- **改动文件之外的测试挂了** → 高度警惕，可能确实破坏了原有功能。
+- **改动文件自身的测试挂了** → Step 7 改法不对，回滚或重做。
+- **环境问题（依赖没装）** → 报告给用户。
 
 #### 不需要跑验证的情况（明确豁免）
 
-- 仅审计未修改任何代码（Step 1-6 走完，Step 7 没动）
-- 仅修改 `*.md` / `.github/**` / `spec/**` / `CHANGELOG.md` / `release-notes` 等文档与元数据
-- 仅修改 `examples/**` 演示代码（但若 examples 有 CI 跑，仍需跑）
+- 仅审计未修改任何代码
+- 仅修改 `*.md` / `.github/**` / `doc/**` 等文档与元数据
 
 #### 验证报告（写进 Step 7 的修复结果里）
 
 ```
 🧪 回归验证
 - 范围：窄 / 中 / 全
-- 命令：uv run pytest tests/api/test_silicon.py -x
+- 命令：python -m pytest tests/test_crop.py -x -v
 - 结果：✅ 12 passed / ⚠️ 1 skipped / ❌ 0 failed
-- 耗时：8.3s
-- 结论：未破坏原有功能 / 发现 X 个回归（详见下）
+- 耗时：3.2s
+- 结论：未破坏原有功能
 ```
 
 ## 输出原则
@@ -324,9 +285,6 @@ cd deploy && alembic -c alembic_billing.ini upgrade head     # 计费库
 
 | 发现 | 转交给 |
 |---|---|
-| 缺迁移 | `migration-author` |
-| 跨仓契约不同步 | `sdk-syncer` |
 | 测试盲点 | `test-author` |
 | 规范不合规 | `pr-reviewer` |
-| 缺 CHANGELOG / release-notes | `changelogger` |
-| hezor_common 升级未联动 | `hezor-common-upgrader`（或等价的共享库联动 agent） |
+| 文档不同步 | 标注在报告中，人工更新 `doc/` |
